@@ -141,6 +141,6 @@ SamplingCore + collectors
 
 - Static source inspection covered `Package.swift`, release metadata, all source references to the identified API families, framework imports, and collector platform calls.
 - Apple documentation provides API availability evidence, not proof of AirStats behavior on Ventura.
-- The current workstation has neither a Swift toolchain nor a macOS SDK/runtime. A lowered-target build, app launch, UI render, and collector probe cannot be performed here.
+- The current workstation has Swift 5.8.1 targeting x86_64, not the Swift 6 toolchain required by this package. Its selected Command Line Tools installation also fails to resolve the macOS SDK `PlatformPath`, so `swift build` exits before compilation. A lowered-target build, Ventura Apple-silicon app launch, UI render, and collector probe cannot be performed here.
 
 The implementation and validation plan is in [Ventura compatibility feasibility](ventura-compatibility.md).

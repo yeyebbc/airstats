@@ -1,4 +1,4 @@
-# macOS Ventura compatibility feasibility
+# Ventura-compatible build: pros, cons, and feasibility
 
 Research date: 2026-09-04. This assessment is based on the source inventory in [macOS Sonoma dependency analysis](sonoma-dependencies.md), Apple API documentation, and the project's resolved third-party dependency.
 
@@ -14,6 +14,28 @@ There is no identified Ventura-incompatible collector or third-party dependency.
 4. one `defaultScrollAnchor` modifier introduced in macOS 14.
 
 This is not a one-line deployment-target change. Lowering the version gates before replacing the APIs will produce availability errors, and weakening observation can produce a build that launches but silently stops refreshing settings, metrics, alerts, hot keys, or update notices.
+
+## Pros and cons
+
+| Consideration | Benefits | Costs and risks |
+| --- | --- | --- |
+| User reach | Supports users and managed fleets pinned to Ventura. | Adds OS-version reach only. Under AirStats' Apple-silicon requirement, every Ventura-capable Mac can also run Sonoma. |
+| Engineering scope | The blockers are known and localized; collectors and Sparkle have no identified compile-time incompatibility. | The Observation migration crosses six models and six live reaction paths. A mistake can cause silent stale UI, settings, alerts, hot keys, or update state rather than an obvious crash. |
+| Product architecture | A native Combine cutover can produce one code path and one binary for macOS 13.3 and later. | `ObservableObject` invalidation is broader than Observation and may increase redraws. Post-commit notification semantics and cancellation must be designed explicitly. |
+| Release operations | One unified 13.3+ artifact can use the existing signing, notarization, distribution, and Sparkle flow after metadata is aligned. | A separate Ventura artifact would add feed selection, signing/notarization, regression testing, support triage, and release-retention complexity without avoiding the source migration. |
+| Tooling | Xcode 16 can compile the current Swift 6 package for Ventura from a supported newer macOS host. | Ventura cannot host Xcode 16, so contributors on Ventura cannot build the current package with Apple's supported toolchain. |
+| Compatibility floor | Keeping `scrollBounceBehavior` allows a focused migration with a truthful macOS 13.3 minimum. | This does not support Ventura 13.0 through 13.2. Supporting those releases requires another fallback and test path. |
+| Platform longevity | A compatibility build can provide continuity while users complete OS upgrades. | Ventura's compatibility page is archived and its last listed OS security release is 13.7.8 from 2025-08-20. Supporting it increases security and support exposure. This is an inference from Apple's release record, not an Apple EOL declaration. |
+
+## Build strategy decision
+
+| Option | Assessment |
+| --- | --- |
+| Keep macOS 14+ | Lowest engineering and support cost. Prefer this when there is no measured Ventura demand. |
+| Ship one Apple-silicon build for macOS 13.3+ | **Recommended if demand justifies the migration.** It keeps one implementation, artifact, update feed, and release process for Ventura and newer systems. |
+| Ship a separate Ventura build | **Not recommended.** The source still has to stop depending unconditionally on macOS 14 APIs, while a second artifact or branch doubles operational and behavioral divergence. It is justified only if an external distribution constraint makes a unified binary impossible; none was identified. |
+
+The decision is therefore conditional, not purely technical: retain macOS 14 unless a user count, fleet commitment, or support obligation pays for the migration and ongoing Ventura test matrix. If that threshold is met, lower the main build to 13.3 rather than creating a legacy edition.
 
 ## Toolchain feasibility
 
@@ -133,7 +155,7 @@ Apple's [security releases list](https://support.apple.com/en-us/100100) records
 
 ## Recommendation
 
-Proceed only if there is a measured user or fleet requirement for Ventura. The engineering work is bounded and feasible, but the business value is OS-version reach rather than hardware reach, and it comes with a legacy-OS security/support cost.
+Proceed only if there is a measured user or fleet requirement for Ventura. The engineering work is bounded and feasible, but the business value is OS-version reach rather than hardware reach, and it comes with a legacy-OS security/support cost. If proceeding, ship one unified Apple-silicon build with a macOS 13.3 minimum rather than a separate Ventura artifact.
 
 If proceeding:
 
@@ -154,9 +176,9 @@ Completed here:
 - primary-source availability checks for the blocking and nearby APIs;
 - Xcode, hardware compatibility, security-release, and Sparkle manifest research.
 
-Not executable on the current workstation:
+The current workstation has `/usr/bin/swift`, but it is Swift 5.8.1 targeting x86_64. The selected Command Line Tools installation cannot build this Swift 6 package: `swift build` exits before compilation because `xcrun` cannot resolve the SDK `PlatformPath`. Consequently, the following remain unverified:
 
-- Swift compilation against a macOS 13 SDK;
-- Ventura app launch, UI, collector, sleep/wake, notification, login-item, and Sparkle checks.
+- Swift compilation against a macOS 13.3 deployment target with Xcode 16;
+- Ventura Apple-silicon app launch, UI, collector, sleep/wake, notification, login-item, and Sparkle checks.
 
 Those unperformed checks are release blockers, not optional follow-up work.
